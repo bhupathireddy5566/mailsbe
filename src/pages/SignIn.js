@@ -8,9 +8,10 @@ const SignIn = ({ nhost }) => {
 
   const handleGoogleSignIn = () => {
     setIsRedirecting(true);
+    const currentUrl = window.location.origin;
     nhost.auth.signIn({
       provider: "google",
-      redirectTo: "http://localhost:3000/app"
+      redirectTo: `${currentUrl}/app`
     });
   };
 
