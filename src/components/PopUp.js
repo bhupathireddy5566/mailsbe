@@ -20,7 +20,7 @@ const ADD_EMAIL = gql`
     $email: String!
     $description: String!
     $img_text: String!
-    $user: String!
+    $user: uuid!
   ) {
     insert_emails(
       objects: {
@@ -35,6 +35,15 @@ const ADD_EMAIL = gql`
   }
 `;
 
+// Try a different approach with a direct mutation
+const ADD_EMAIL_DIRECT = gql`
+  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!, $user: uuid!) {
+    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text, user: $user}) {
+      id
+    }
+  }
+`;
+
 const PopUp = ({ setPopUp }) => {
   //get the user data
   const user = useUserData();
@@ -44,7 +53,7 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  const [addEmail, { loading, error }] = useMutation(ADD_EMAIL);
+  const [addEmail, { loading, error }] = useMutation(ADD_EMAIL_DIRECT);
 
   const ref = useRef();
 
