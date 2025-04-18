@@ -9,7 +9,6 @@ const SignIn = ({ nhost }) => {
   const handleGoogleSignIn = () => {
     setIsRedirecting(true);
     const currentUrl = window.location.origin;
-    console.log("Redirecting to Google with URL:", `${currentUrl}/app`);
     nhost.auth.signIn({
       provider: "google",
       redirectTo: `${currentUrl}/app`
@@ -17,7 +16,7 @@ const SignIn = ({ nhost }) => {
   };
 
   if (isRedirecting) {
-    return <div className={styles["verification-text"]}>Redirecting to Google...</div>;
+    return null;
   }
 
   return (
