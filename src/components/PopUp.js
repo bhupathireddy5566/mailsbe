@@ -15,25 +15,17 @@ import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
 import { gql, useMutation } from "@apollo/client";
 
-// Function to validate UUID format
-const isValidUUID = (uuid) => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
-};
-
 const ADD_EMAIL = gql`
   mutation addEmail(
     $email: String!
     $description: String!
     $img_text: String!
-    $user: uuid!
   ) {
     insert_emails(
       objects: {
         description: $description
         email: $email
         img_text: $img_text
-        user: $user
       }
     ) {
       affected_rows
@@ -43,8 +35,8 @@ const ADD_EMAIL = gql`
 
 // Try a different approach with a direct mutation
 const ADD_EMAIL_DIRECT = gql`
-  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!, $user: uuid!) {
-    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text, user: $user}) {
+  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!) {
+    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text}) {
       id
     }
   }
@@ -76,27 +68,14 @@ const PopUp = ({ setPopUp }) => {
       const trackingId = imgText.split("?text=")[1];
       
       console.log("User object:", user);
-      console.log("User ID:", user.id);
-      
-      // Make sure user.id is a valid UUID string
-      if (!user || !user.id) {
-        toast.error("User ID is missing. Please log in again.");
-        return;
-      }
-      
-      if (!isValidUUID(user.id)) {
-        console.error("Invalid UUID format:", user.id);
-        toast.error("Invalid user ID format. Please contact support.");
-        return;
-      }
       
       // Save the email to the database
+      // The user ID will be set by Hasura's column preset from X-Hasura-User-Id
       const result = await addEmail({
         variables: {
           email: email,
           description: description,
-          img_text: trackingId,
-          user: user.id // This should be a UUID string
+          img_text: trackingId
         },
       });
       
