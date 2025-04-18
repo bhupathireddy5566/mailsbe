@@ -75,6 +75,15 @@ const ADD_EMAIL_DIRECT = gql`
   }
 `;
 
+// Try a simplified mutation that should match the exact Hasura schema
+const SIMPLE_ADD_EMAIL = gql`
+  mutation SimpleAddEmail($email: String!, $description: String!, $img_text: String!) {
+    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text}) {
+      id
+    }
+  }
+`;
+
 const PopUp = ({ setPopUp }) => {
   //get the user data
   const user = useUserData();
@@ -84,7 +93,8 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  const [addEmail, { loading, error }] = useMutation(ADD_EMAIL_DIRECT);
+  // Use the simplified mutation
+  const [addEmail, { loading, error }] = useMutation(SIMPLE_ADD_EMAIL);
 
   const ref = useRef();
 
@@ -112,28 +122,13 @@ const PopUp = ({ setPopUp }) => {
       const trackingId = imgText.split("?text=")[1];
       
       console.log("User object:", user);
-      console.log("User ID type:", typeof user.id);
-      console.log("User ID value:", user.id);
-      
-      // Make sure user id exists and is valid
-      if (!user || !user.id) {
-        toast.error("User ID is missing. Please log in again.");
-        return;
-      }
-      
-      // Ensure we have a valid UUID
-      const validUUID = ensureValidUUID(user.id);
-      if (!validUUID) {
-        toast.error("Invalid user ID format. Please contact support.");
-        return;
-      }
       
       // For debugging, show what we're sending to the API
       const variables = {
         email: email,
         description: description,
-        img_text: trackingId,
-        user: validUUID
+        img_text: trackingId
+        // No user field - let Hasura handle this through RLS or defaults
       };
       
       console.log("Sending variables to GraphQL:", variables);
