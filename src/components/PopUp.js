@@ -15,6 +15,12 @@ import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
 import { gql, useMutation } from "@apollo/client";
 
+// Function to validate UUID format
+const isValidUUID = (uuid) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 const ADD_EMAIL = gql`
   mutation addEmail(
     $email: String!
@@ -72,13 +78,25 @@ const PopUp = ({ setPopUp }) => {
       console.log("User object:", user);
       console.log("User ID:", user.id);
       
+      // Make sure user.id is a valid UUID string
+      if (!user || !user.id) {
+        toast.error("User ID is missing. Please log in again.");
+        return;
+      }
+      
+      if (!isValidUUID(user.id)) {
+        console.error("Invalid UUID format:", user.id);
+        toast.error("Invalid user ID format. Please contact support.");
+        return;
+      }
+      
       // Save the email to the database
       const result = await addEmail({
         variables: {
           email: email,
           description: description,
           img_text: trackingId,
-          user: user.id
+          user: user.id // This should be a UUID string
         },
       });
       
