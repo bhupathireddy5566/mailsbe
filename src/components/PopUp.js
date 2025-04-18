@@ -20,7 +20,7 @@ const ADD_EMAIL = gql`
     $email: String
     $description: String
     $img_text: String
-    $user: String
+    $user: uuid
   ) {
     insert_emails(
       objects: {
@@ -59,7 +59,6 @@ const PopUp = ({ setPopUp }) => {
       }
       
       const trackingId = imgText.split("?text=")[1];
-      console.log("Using tracking ID:", trackingId);
       
       // Save the email to the database
       await addEmail({
@@ -67,7 +66,7 @@ const PopUp = ({ setPopUp }) => {
           email: email,
           description: description,
           img_text: trackingId,
-          user: user.id,
+          user: user.id // This is already a UUID type from Nhost auth
         },
       });
       
@@ -76,7 +75,7 @@ const PopUp = ({ setPopUp }) => {
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
-      toast.error("Unable to add email");
+      toast.error("Unable to add email: " + (err.message || "Unknown error"));
     }
   };
 
