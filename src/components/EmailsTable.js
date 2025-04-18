@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { useEffect, useState, useCallback } from "react";
 
 const GET_EMAILS = gql`
-  query getEmails($user: String) {
+  query getEmails($user: String!) {
     emails(order_by: { created_at: desc }, where: { user: { _eq: $user } }) {
       created_at
       description

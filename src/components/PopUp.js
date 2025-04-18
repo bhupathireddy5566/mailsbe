@@ -17,10 +17,10 @@ import { gql, useMutation } from "@apollo/client";
 
 const ADD_EMAIL = gql`
   mutation addEmail(
-    $email: String
-    $description: String
-    $img_text: String
-    $user: uuid
+    $email: String!
+    $description: String!
+    $img_text: String!
+    $user: String!
   ) {
     insert_emails(
       objects: {
@@ -41,7 +41,7 @@ const PopUp = ({ setPopUp }) => {
 
   const [email, setEmail] = useState("");
   const [description, setDescription] = useState("");
-  const [name, setName] = useState(user.displayName);
+  const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
   const [addEmail, { loading, error }] = useMutation(ADD_EMAIL);
@@ -60,21 +60,43 @@ const PopUp = ({ setPopUp }) => {
       
       const trackingId = imgText.split("?text=")[1];
       
+      console.log("User object:", user);
+      console.log("User ID:", user.id);
+      
       // Save the email to the database
-      await addEmail({
+      const result = await addEmail({
         variables: {
           email: email,
           description: description,
           img_text: trackingId,
-          user: user.id // This is already a UUID type from Nhost auth
+          user: user.id
         },
       });
+      
+      console.log("Mutation result:", result);
       
       toast.success("Email added successfully");
       setPopUp(false);
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
+      
+      // Log detailed GraphQL errors if available
+      if (err.graphQLErrors) {
+        console.error("GraphQL Errors:", err.graphQLErrors);
+        err.graphQLErrors.forEach((graphQLError, index) => {
+          console.error(`GraphQL Error ${index + 1}:`, graphQLError);
+        });
+      }
+      
+      // Log network errors if available
+      if (err.networkError) {
+        console.error("Network Error:", err.networkError);
+        if (err.networkError.result && err.networkError.result.errors) {
+          console.error("Network Error Details:", err.networkError.result.errors);
+        }
+      }
+      
       toast.error("Unable to add email: " + (err.message || "Unknown error"));
     }
   };
