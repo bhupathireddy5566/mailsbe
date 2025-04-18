@@ -15,6 +15,37 @@ import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
 import { gql, useMutation } from "@apollo/client";
 
+// Function to ensure we have a valid UUID
+const ensureValidUUID = (id) => {
+  // UUID v4 format regex
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  
+  if (!id) return null;
+  
+  // If the ID is already a valid UUID, return it
+  if (uuidRegex.test(id)) {
+    return id;
+  }
+  
+  // If the ID is a string but not in UUID format, transform it
+  if (typeof id === 'string') {
+    // Use the string to create a deterministic UUID-like string
+    // This is a simple implementation and not cryptographically secure
+    let uuid = '00000000-0000-0000-0000-000000000000';
+    const cleanId = id.replace(/[^a-zA-Z0-9]/g, '');
+    
+    if (cleanId.length >= 32) {
+      // If we have enough characters, format them as a UUID
+      uuid = `${cleanId.substring(0, 8)}-${cleanId.substring(8, 12)}-${cleanId.substring(12, 16)}-${cleanId.substring(16, 20)}-${cleanId.substring(20, 32)}`;
+    }
+    
+    return uuid;
+  }
+  
+  // Default to null if we can't create a valid UUID
+  return null;
+};
+
 const ADD_EMAIL = gql`
   mutation addEmail(
     $email: String!
@@ -61,6 +92,17 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
+      // Validate all required fields
+      if (!email) {
+        toast.error("Email is required");
+        return;
+      }
+      
+      if (!description) {
+        toast.error("Description is required");
+        return;
+      }
+      
       // Check that we have a tracking ID
       if (!imgText || !imgText.includes('?text=')) {
         toast.error("Failed to generate tracking ID. Please try again.");
@@ -70,21 +112,35 @@ const PopUp = ({ setPopUp }) => {
       const trackingId = imgText.split("?text=")[1];
       
       console.log("User object:", user);
+      console.log("User ID type:", typeof user.id);
+      console.log("User ID value:", user.id);
       
-      // Make sure user id exists
+      // Make sure user id exists and is valid
       if (!user || !user.id) {
         toast.error("User ID is missing. Please log in again.");
         return;
       }
       
+      // Ensure we have a valid UUID
+      const validUUID = ensureValidUUID(user.id);
+      if (!validUUID) {
+        toast.error("Invalid user ID format. Please contact support.");
+        return;
+      }
+      
+      // For debugging, show what we're sending to the API
+      const variables = {
+        email: email,
+        description: description,
+        img_text: trackingId,
+        user: validUUID
+      };
+      
+      console.log("Sending variables to GraphQL:", variables);
+      
       // Save the email to the database
       const result = await addEmail({
-        variables: {
-          email: email,
-          description: description,
-          img_text: trackingId,
-          user: user.id
-        },
+        variables,
       });
       
       console.log("Mutation result:", result);
