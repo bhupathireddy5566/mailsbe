@@ -20,12 +20,14 @@ const ADD_EMAIL = gql`
     $email: String!
     $description: String!
     $img_text: String!
+    $user: String!
   ) {
     insert_emails(
       objects: {
         description: $description
         email: $email
         img_text: $img_text
+        user: $user
       }
     ) {
       affected_rows
@@ -35,8 +37,8 @@ const ADD_EMAIL = gql`
 
 // Try a different approach with a direct mutation
 const ADD_EMAIL_DIRECT = gql`
-  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!) {
-    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text}) {
+  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!, $user: String!) {
+    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text, user: $user}) {
       id
     }
   }
@@ -69,13 +71,19 @@ const PopUp = ({ setPopUp }) => {
       
       console.log("User object:", user);
       
+      // Make sure user id exists
+      if (!user || !user.id) {
+        toast.error("User ID is missing. Please log in again.");
+        return;
+      }
+      
       // Save the email to the database
-      // The user ID will be set by Hasura's column preset from X-Hasura-User-Id
       const result = await addEmail({
         variables: {
           email: email,
           description: description,
-          img_text: trackingId
+          img_text: trackingId,
+          user: user.id
         },
       });
       
