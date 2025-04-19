@@ -10,49 +10,39 @@ import SaveIcon from "@mui/icons-material/Save";
 import HighlightOffIcon from "@mui/icons-material/HighlightOff";
 import toast from "react-hot-toast";
 import { useUserData } from "@nhost/react";
+import { useNhostClient } from '@nhost/react';
 
 import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
-import { gql, useMutation } from "@apollo/client";
-
-// Simple mutation for the new schema without user field
-const INSERT_EMAIL = gql`
-  mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
-    insert_emails_one(object: {
-      email: $email, 
-      description: $description, 
-      img_text: $img_text
-    }) {
-      id
-      email
-      created_at
-    }
-  }
-`;
 
 const PopUp = ({ setPopUp }) => {
   const user = useUserData();
+  const nhost = useNhostClient();
 
   const [email, setEmail] = useState("");
   const [description, setDescription] = useState("");
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
-
-  const [insertEmail, { loading, error }] = useMutation(INSERT_EMAIL);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const ref = useRef();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
       if (!email || !description) {
         toast.error("Please fill in all required fields");
+        setLoading(false);
         return;
       }
       
       if (!imgText) {
         toast.error("Tracking ID not generated. Please try again.");
+        setLoading(false);
         return;
       }
       
@@ -61,27 +51,52 @@ const PopUp = ({ setPopUp }) => {
       
       console.log("Submitting email with tracking ID:", trackingId);
       
-      const result = await insertEmail({
-        variables: {
-          email: email,
-          description: description,
-          img_text: trackingId
+      // Create a direct API request to Hasura
+      const response = await fetch(
+        `https://${process.env.REACT_APP_NHOST_SUBDOMAIN}.${process.env.REACT_APP_NHOST_REGION}.nhost.run/v1/graphql`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-hasura-admin-secret': process.env.REACT_APP_HASURA_ADMIN_SECRET,
+          },
+          body: JSON.stringify({
+            query: `
+              mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
+                insert_emails_one(object: {
+                  email: $email, 
+                  description: $description, 
+                  img_text: $img_text
+                }) {
+                  id
+                }
+              }
+            `,
+            variables: {
+              email: email,
+              description: description,
+              img_text: trackingId
+            }
+          })
         }
-      });
+      );
       
-      console.log("Success! Email saved:", result.data.insert_emails_one);
+      const result = await response.json();
+      console.log("API response:", result);
+      
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      
       toast.success("Email added successfully");
+      setLoading(false);
       setPopUp(false);
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
-      
-      let errorMessage = "Unable to add email";
-      if (err.graphQLErrors && err.graphQLErrors.length > 0) {
-        errorMessage += ": " + err.graphQLErrors[0].message;
-      }
-      
-      toast.error(errorMessage);
+      setError(err);
+      setLoading(false);
+      toast.error("Unable to add email: " + (err.message || "Unknown error"));
     }
   };
 
