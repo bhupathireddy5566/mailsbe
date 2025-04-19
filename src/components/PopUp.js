@@ -15,58 +15,13 @@ import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
 import { gql, useMutation } from "@apollo/client";
 
-// Function to ensure we have a valid UUID
-const ensureValidUUID = (id) => {
-  // UUID v4 format regex
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  
-  if (!id) return null;
-  
-  // If the ID is already a valid UUID, return it
-  if (uuidRegex.test(id)) {
-    return id;
-  }
-  
-  // If the ID is a string but not in UUID format, transform it
-  if (typeof id === 'string') {
-    // Use the string to create a deterministic UUID-like string
-    // This is a simple implementation and not cryptographically secure
-    let uuid = '00000000-0000-0000-0000-000000000000';
-    const cleanId = id.replace(/[^a-zA-Z0-9]/g, '');
-    
-    if (cleanId.length >= 32) {
-      // If we have enough characters, format them as a UUID
-      uuid = `${cleanId.substring(0, 8)}-${cleanId.substring(8, 12)}-${cleanId.substring(12, 16)}-${cleanId.substring(16, 20)}-${cleanId.substring(20, 32)}`;
-    }
-    
-    return uuid;
-  }
-  
-  // Default to null if we can't create a valid UUID
-  return null;
-};
-
-// Document-style mutation that worked in API Explorer
-const INSERT_EMAIL = gql`
-  mutation InsertEmail($email: String!, $description: String!, $imgText: String!) {
+// The absolute simplest mutation possible
+const MINIMAL_MUTATION = gql`
+  mutation InsertMinimal($email: String!, $description: String!, $img_text: String!) {
     insert_emails_one(object: {
       email: $email, 
       description: $description, 
-      img_text: $imgText
-    }) {
-      id
-      email
-    }
-  }
-`;
-
-// Super simple mutation with no variables as a fallback
-const SIMPLE_MUTATION = gql`
-  mutation {
-    insert_emails_one(object: {
-      email: "placeholder@email.com", 
-      description: "Placeholder", 
-      img_text: "placeholder"
+      img_text: $img_text
     }) {
       id
     }
@@ -82,10 +37,7 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  // Keep original mutation
-  const [addEmail, { data, loading, error }] = useMutation(INSERT_EMAIL);
-  // Add fallback mutation
-  const [addSimpleEmail] = useMutation(SIMPLE_MUTATION);
+  const [addEmail, { loading, error }] = useMutation(MINIMAL_MUTATION);
 
   const ref = useRef();
 
@@ -93,7 +45,7 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
-      console.log("Submitting email with API Explorer-tested mutation");
+      console.log("Submitting with minimal mutation");
       
       if (!imgText) {
         toast.error("Tracking ID not generated. Please try again.");
@@ -103,46 +55,28 @@ const PopUp = ({ setPopUp }) => {
       // Extract the tracking ID
       const trackingId = imgText.includes("=") ? imgText.split("=")[1] : "";
       
-      console.log("Sending variables:", {
+      console.log("Sending data:", {
         email: email,
         description: description,
-        imgText: trackingId
+        img_text: trackingId
       });
       
-      try {
-        // First try the regular mutation
-        const result = await addEmail({
-          variables: {
-            email: email,
-            description: description,
-            imgText: trackingId
-          }
-        });
-        console.log("Mutation result:", result);
-      } catch (mutationError) {
-        console.error("First mutation failed, trying fallback:", mutationError);
-        
-        // If that fails, try the simple mutation
-        const simpleResult = await addSimpleEmail();
-        console.log("Simple mutation result:", simpleResult);
-        
-        // After simple mutation succeeds, manually update the database with correct values
-        // (This is just a temporary solution to understand the issue)
-      }
+      // Use the minimal mutation with exact field names
+      const result = await addEmail({
+        variables: {
+          email: email,
+          description: description,
+          img_text: trackingId // Use exact field name from schema
+        }
+      });
       
+      console.log("Mutation result:", result);
       toast.success("Email added successfully");
       setPopUp(false);
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
-      
-      if (err.graphQLErrors) {
-        console.error("GraphQL Errors:", err.graphQLErrors);
-      }
-      
-      if (err.networkError) {
-        console.error("Network Error:", err.networkError);
-      }
+      console.error("Full error object:", JSON.stringify(err, null, 2));
       
       toast.error("Unable to add email: " + (err.message || "Unknown error"));
     }
