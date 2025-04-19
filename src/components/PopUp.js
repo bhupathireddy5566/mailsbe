@@ -62,11 +62,12 @@ const PopUp = ({ setPopUp }) => {
           },
           body: JSON.stringify({
             query: `
-              mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
+              mutation InsertEmail($email: String!, $description: String!, $img_text: String!, $user_id: uuid!) {
                 insert_emails_one(object: {
                   email: $email, 
                   description: $description, 
-                  img_text: $img_text
+                  img_text: $img_text,
+                  user_id: $user_id
                 }) {
                   id
                 }
@@ -75,7 +76,8 @@ const PopUp = ({ setPopUp }) => {
             variables: {
               email: email,
               description: description,
-              img_text: trackingId
+              img_text: trackingId,
+              user_id: user?.id
             }
           })
         }
