@@ -46,44 +46,22 @@ const ensureValidUUID = (id) => {
   return null;
 };
 
-const ADD_EMAIL = gql`
-  mutation addEmail(
-    $email: String
-    $description: String
-    $img_text: String
-  ) {
-    insert_emails(
-      objects: {
-        description: $description
-        email: $email
-        img_text: $img_text
-      }
-    ) {
-      affected_rows
-    }
-  }
-`;
-
-// Try a different approach with a direct mutation
-const ADD_EMAIL_DIRECT = gql`
-  mutation AddEmailDirect($email: String!, $description: String!, $img_text: String!, $user: uuid!) {
-    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text, user: $user}) {
+// Document-style mutation that worked in API Explorer
+const INSERT_EMAIL = gql`
+  mutation InsertEmail($email: String!, $description: String!, $imgText: String!) {
+    insert_emails_one(object: {
+      email: $email, 
+      description: $description, 
+      img_text: $imgText
+    }) {
       id
-    }
-  }
-`;
-
-// Try a simplified mutation that should match the exact Hasura schema
-const SIMPLE_ADD_EMAIL = gql`
-  mutation SimpleAddEmail($email: String!, $description: String!, $img_text: String!) {
-    insert_emails_one(object: {email: $email, description: $description, img_text: $img_text}) {
-      id
+      email
     }
   }
 `;
 
 const PopUp = ({ setPopUp }) => {
-  //get the user data
+  // Get the user data
   const user = useUserData();
 
   const [email, setEmail] = useState("");
@@ -91,7 +69,7 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  const [addEmail, { data, loading, error }] = useMutation(ADD_EMAIL);
+  const [addEmail, { data, loading, error }] = useMutation(INSERT_EMAIL);
 
   const ref = useRef();
 
@@ -99,27 +77,42 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
-      console.log("Submitting email without user field (will be set by Hasura preset)");
-      await addEmail({
+      console.log("Submitting email with API Explorer-tested mutation");
+      
+      if (!imgText) {
+        toast.error("Tracking ID not generated. Please try again.");
+        return;
+      }
+      
+      // Extract the tracking ID
+      const trackingId = imgText.includes("=") ? imgText.split("=")[1] : "";
+      
+      console.log("Sending variables:", {
+        email: email,
+        description: description,
+        imgText: trackingId
+      });
+      
+      const result = await addEmail({
         variables: {
           email: email,
           description: description,
-          img_text: imgText.split("=")[1]
-          // No user field - it will be set by Hasura column preset
-        },
+          imgText: trackingId
+        }
       });
+      
+      console.log("Mutation result:", result);
+      
       toast.success("Email added successfully");
       setPopUp(false);
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
       
-      // Log detailed GraphQL errors if available
       if (err.graphQLErrors) {
         console.error("GraphQL Errors:", err.graphQLErrors);
       }
       
-      // Log network errors if available
       if (err.networkError) {
         console.error("Network Error:", err.networkError);
       }
