@@ -20,11 +20,6 @@ CREATE INDEX emails_created_at_idx ON emails(created_at);
 COMMENT ON TABLE emails IS 'Stores email tracking information without user relation';
 COMMENT ON COLUMN emails.img_text IS 'Tracking ID included in email images';
 
--- Track the table in Hasura
-SELECT pgcron.schedule('track-tables', '* * * * *', $$
-  SELECT 1;
-$$);
-
 -- Grant permissions for public operations
 GRANT SELECT, INSERT, UPDATE ON emails TO public;
 GRANT USAGE, SELECT ON SEQUENCE emails_id_seq TO public; 
