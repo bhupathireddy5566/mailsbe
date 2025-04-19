@@ -51,14 +51,12 @@ const ADD_EMAIL = gql`
     $email: String
     $description: String
     $img_text: String
-    $user: String
   ) {
     insert_emails(
       objects: {
         description: $description
         email: $email
         img_text: $img_text
-        user: $user
       }
     ) {
       affected_rows
@@ -101,13 +99,13 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
-      console.log("User ID:", user?.id);
+      console.log("Submitting email without user field (will be set by Hasura preset)");
       await addEmail({
         variables: {
           email: email,
           description: description,
-          img_text: imgText.split("=")[1],
-          user: user?.id,
+          img_text: imgText.split("=")[1]
+          // No user field - it will be set by Hasura column preset
         },
       });
       toast.success("Email added successfully");
