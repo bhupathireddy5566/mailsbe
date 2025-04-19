@@ -1,84 +1,144 @@
 import { NhostClient } from "@nhost/nhost-js";
 
-const accessToken = process.env.NHOST_ADMIN_SECRET;
 const backendUrl = process.env.NHOST_BACKEND_URL;
+const adminSecret = process.env.NHOST_ADMIN_SECRET;
+
+// Log critical configuration for debugging
+console.log("Function configuration:");
+console.log("Backend URL configured:", !!backendUrl);
+console.log("Admin secret configured:", !!adminSecret);
 
 const nhost = new NhostClient({
   backendUrl: backendUrl,
 });
 
-// Set admin access token to allow database operations
-nhost.graphql.setAccessToken(accessToken);
-
 export default async (req, res) => {
-  // Get the data from the request
   const imgText = req.query.text;
-  console.log("imgText", imgText);
+  console.log("📨 Tracking pixel requested for img_text:", imgText);
+
+  // Always send a transparent pixel GIF regardless of errors
+  // to avoid broken images in emails
+  const sendTransparentPixel = () => {
+    res.writeHead(200, {
+      "Content-Type": "image/gif",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    });
+    const transparentGif = Buffer.from(
+      "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "base64"
+    );
+    res.end(transparentGif);
+  };
 
   if (!imgText) {
-    return res.status(500).json({ error: "No image token provided" });
+    console.error("No image token provided in request");
+    sendTransparentPixel();
+    return;
   }
 
-  // Make a get query to get email id using imgText
-  const GET_EMAIL_ID = `
-  query getId($text: String!) {
-    emails(where: {img_text: {_eq: $text}}) {
-      id
-      seen
-    }
-  }`;
+  if (!adminSecret) {
+    console.error("Admin secret is not configured!");
+    sendTransparentPixel();
+    return;
+  }
 
-  // Update query with the email id
-  const UPDATE_QUERY = `
-    mutation UpdateEmail($id: Int!, $date: timestamptz!) {
-      update_emails(where: {id: {_eq: $id}}, _set: {seen: true, seen_at: $date}) {
+  // GraphQL query to get email by img_text
+  const GET_EMAIL = `
+    query getEmail($imgText: String!) {
+      emails(where: {img_text: {_eq: $imgText}}) {
+        id
+        seen
+      }
+    }
+  `;
+
+  // Mutation to update seen status
+  const UPDATE_EMAIL = `
+    mutation updateEmailSeen($id: Int!, $date: timestamptz!) {
+      update_emails(
+        where: {id: {_eq: $id}}, 
+        _set: {seen: true, seen_at: $date}
+      ) {
         affected_rows
       }
-    }`;
+    }
+  `;
 
   try {
-    // First, fetch the email data
-    const { data, error } = await nhost.graphql.request(GET_EMAIL_ID, {
-      text: imgText,
+    // Step 1: Query to get email ID using img_text
+    console.log(`Making GraphQL request to ${backendUrl}/v1/graphql`);
+    const getResponse = await fetch(`${backendUrl}/v1/graphql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-hasura-admin-secret": adminSecret,
+      },
+      body: JSON.stringify({
+        query: GET_EMAIL,
+        variables: { imgText },
+      }),
     });
 
-    console.log("Query result:", data, error);
+    const getResult = await getResponse.json();
+    console.log("Query response:", JSON.stringify(getResult));
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
+    if (getResult.errors) {
+      console.error("GraphQL errors:", getResult.errors);
+      sendTransparentPixel();
+      return;
     }
 
-    if (!data || !data.emails || data.emails.length === 0) {
-      return res.status(500).json({ error: "No email found with this tracking ID" });
+    if (!getResult.data || !getResult.data.emails || !getResult.data.emails.length) {
+      console.error("Email not found with img_text:", imgText);
+      sendTransparentPixel();
+      return;
     }
 
-    // Extract the email id from the response
-    const emailId = data.emails[0].id;
-    const seen = data.emails[0].seen;
+    const email = getResult.data.emails[0];
+    console.log("📧 Found email:", email);
 
-    if (seen) {
-      // Already marked as seen, no need to update
-      console.log("Email already marked as seen");
-      return res.status(404).send({ error: "Not found" });
+    if (email.seen) {
+      console.log("✅ Email already marked as seen");
+      sendTransparentPixel();
+      return;
     }
 
-    // Update the seen column in emails table
-    const { data: updatedData, error: updateError } = 
-      await nhost.graphql.request(UPDATE_QUERY, {
-        id: emailId,
-        date: new Date().toISOString(),
-      });
+    const emailId = email.id;
+    const now = new Date().toISOString();
 
-    console.log("Update result:", updatedData, updateError);
+    // Step 2: Mutation to update seen status
+    console.log(`Updating email ID ${emailId} as seen at ${now}`);
+    const updateResponse = await fetch(`${backendUrl}/v1/graphql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-hasura-admin-secret": adminSecret,
+      },
+      body: JSON.stringify({
+        query: UPDATE_EMAIL,
+        variables: { id: emailId, date: now },
+      }),
+    });
 
-    if (updateError) {
-      return res.status(500).json({ error: updateError.message });
+    const updateResult = await updateResponse.json();
+    console.log("Update response:", JSON.stringify(updateResult));
+
+    if (updateResult.errors) {
+      console.error("❌ Error updating email:", updateResult.errors);
+      sendTransparentPixel();
+      return;
     }
 
-    // Return 404 to not alert email client that this is a tracking pixel
-    res.status(404).send({ error: "Not found" });
+    console.log("✅ Successfully updated email seen status, affected rows:", 
+      updateResult.data?.update_emails?.affected_rows || 0);
+
+    // Return transparent pixel
+    sendTransparentPixel();
   } catch (error) {
-    console.log("Unexpected error:", error);
-    res.status(500).json({ error: error.message || "Unknown error occurred" });
+    console.error("🔥 Unexpected error:", error);
+    // Always return a valid image even if there's an error
+    sendTransparentPixel();
   }
 };
