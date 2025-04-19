@@ -26,6 +26,7 @@ const App = () => {
   const nhost = new NhostClient({
     subdomain: process.env.REACT_APP_NHOST_SUBDOMAIN,
     region: process.env.REACT_APP_NHOST_REGION,
+    adminSecret: process.env.REACT_APP_HASURA_ADMIN_SECRET,
   });
 
   return (
