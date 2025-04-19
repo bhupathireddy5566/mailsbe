@@ -15,21 +15,22 @@ import styles from "../styles/components/Popup.module.css";
 import { useState, useEffect, useRef } from "react";
 import { gql, useMutation } from "@apollo/client";
 
-// The absolute simplest mutation possible
-const MINIMAL_MUTATION = gql`
-  mutation InsertMinimal($email: String!, $description: String!, $img_text: String!) {
+// Simple mutation for the new schema without user field
+const INSERT_EMAIL = gql`
+  mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
     insert_emails_one(object: {
       email: $email, 
       description: $description, 
       img_text: $img_text
     }) {
       id
+      email
+      created_at
     }
   }
 `;
 
 const PopUp = ({ setPopUp }) => {
-  // Get the user data
   const user = useUserData();
 
   const [email, setEmail] = useState("");
@@ -37,7 +38,7 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  const [addEmail, { loading, error }] = useMutation(MINIMAL_MUTATION);
+  const [insertEmail, { loading, error }] = useMutation(INSERT_EMAIL);
 
   const ref = useRef();
 
@@ -45,40 +46,42 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
-      console.log("Submitting with minimal mutation");
+      if (!email || !description) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
       
       if (!imgText) {
         toast.error("Tracking ID not generated. Please try again.");
         return;
       }
       
-      // Extract the tracking ID
+      // Extract the tracking ID from the URL
       const trackingId = imgText.includes("=") ? imgText.split("=")[1] : "";
       
-      console.log("Sending data:", {
-        email: email,
-        description: description,
-        img_text: trackingId
-      });
+      console.log("Submitting email with tracking ID:", trackingId);
       
-      // Use the minimal mutation with exact field names
-      const result = await addEmail({
+      const result = await insertEmail({
         variables: {
           email: email,
           description: description,
-          img_text: trackingId // Use exact field name from schema
+          img_text: trackingId
         }
       });
       
-      console.log("Mutation result:", result);
+      console.log("Success! Email saved:", result.data.insert_emails_one);
       toast.success("Email added successfully");
       setPopUp(false);
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
-      console.error("Full error object:", JSON.stringify(err, null, 2));
       
-      toast.error("Unable to add email: " + (err.message || "Unknown error"));
+      let errorMessage = "Unable to add email";
+      if (err.graphQLErrors && err.graphQLErrors.length > 0) {
+        errorMessage += ": " + err.graphQLErrors[0].message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
