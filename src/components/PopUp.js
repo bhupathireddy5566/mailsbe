@@ -50,8 +50,24 @@ const PopUp = ({ setPopUp }) => {
       const trackingId = imgText.includes("=") ? imgText.split("=")[1] : "";
       
       console.log("Submitting email with tracking ID:", trackingId);
+      console.log("User object:", user);
       
-      // Create a direct API request to Hasura
+      // ULTRA simplified mutation - Remove all fields that might cause issues
+      const simpleMutation = `
+        mutation {
+          insert_emails_one(object: {
+            email: "${email}",
+            description: "${description}",
+            img_text: "${trackingId}"
+          }) {
+            id
+          }
+        }
+      `;
+      
+      console.log("Executing mutation:", simpleMutation);
+      
+      // Create a direct API request to Hasura with simplified mutation
       const response = await fetch(
         `https://${process.env.REACT_APP_NHOST_SUBDOMAIN}.${process.env.REACT_APP_NHOST_REGION}.nhost.run/v1/graphql`,
         {
@@ -61,38 +77,17 @@ const PopUp = ({ setPopUp }) => {
             'x-hasura-admin-secret': process.env.REACT_APP_HASURA_ADMIN_SECRET,
           },
           body: JSON.stringify({
-            query: `
-              mutation InsertEmails($user_id: String, $email: String, $description: String, $img_text: String, $seen_at: timestamptz) {
-                insert_emails(objects: {user_id: $user_id, email: $email, description: $description, img_text: $img_text, seen_at: $seen_at}) {
-                  affected_rows
-                  returning {
-                    id
-                    user_id
-                    email
-                    description
-                    img_text
-                    created_at
-                    seen_at
-                    seen
-                  }
-                }
-              }
-            `,
-            variables: {
-              user_id: user?.id,
-              email: email,
-              description: description,
-              img_text: trackingId,
-              seen_at: null
-            }
+            query: simpleMutation
+            // No variables - using hardcoded values in the query
           })
         }
       );
       
       const result = await response.json();
-      console.log("API response:", result);
+      console.log("API response:", JSON.stringify(result, null, 2));
       
       if (result.errors) {
+        console.error("GraphQL Errors:", result.errors);
         throw new Error(result.errors[0].message);
       }
       
@@ -102,6 +97,7 @@ const PopUp = ({ setPopUp }) => {
       window.location.reload();
     } catch (err) {
       console.error("Error adding email:", err);
+      console.error("Error details:", JSON.stringify(err, null, 2));
       setError(err);
       setLoading(false);
       toast.error("Unable to add email: " + (err.message || "Unknown error"));
