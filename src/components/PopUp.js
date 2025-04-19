@@ -52,22 +52,36 @@ const PopUp = ({ setPopUp }) => {
       console.log("Submitting email with tracking ID:", trackingId);
       console.log("User object:", user);
       
-      // ULTRA simplified mutation - Remove all fields that might cause issues
-      const simpleMutation = `
-        mutation {
+      // Proper mutation with variables
+      const mutation = `
+        mutation InsertEmail($email: String!, $description: String!, $img_text: String!, $user_id: String!) {
           insert_emails_one(object: {
-            email: "${email}",
-            description: "${description}",
-            img_text: "${trackingId}"
+            email: $email,
+            description: $description,
+            img_text: $img_text,
+            user_id: $user_id
           }) {
             id
+            email
+            description
+            img_text
+            user_id
+            created_at
           }
         }
       `;
       
-      console.log("Executing mutation:", simpleMutation);
+      // Variables for the mutation
+      const variables = {
+        email: email,
+        description: description,
+        img_text: trackingId,
+        user_id: user?.id || "anonymous"
+      };
       
-      // Create a direct API request to Hasura with simplified mutation
+      console.log("Executing mutation with variables:", JSON.stringify(variables, null, 2));
+      
+      // Create a direct API request to Hasura
       const response = await fetch(
         `https://${process.env.REACT_APP_NHOST_SUBDOMAIN}.${process.env.REACT_APP_NHOST_REGION}.nhost.run/v1/graphql`,
         {
@@ -77,8 +91,8 @@ const PopUp = ({ setPopUp }) => {
             'x-hasura-admin-secret': process.env.REACT_APP_HASURA_ADMIN_SECRET,
           },
           body: JSON.stringify({
-            query: simpleMutation
-            // No variables - using hardcoded values in the query
+            query: mutation,
+            variables: variables
           })
         }
       );
