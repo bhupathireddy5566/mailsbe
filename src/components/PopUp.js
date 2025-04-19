@@ -48,10 +48,10 @@ const ensureValidUUID = (id) => {
 
 const ADD_EMAIL = gql`
   mutation addEmail(
-    $email: String!
-    $description: String!
-    $img_text: String!
-    $user: uuid!
+    $email: String
+    $description: String
+    $img_text: String
+    $user: String
   ) {
     insert_emails(
       objects: {
@@ -93,8 +93,7 @@ const PopUp = ({ setPopUp }) => {
   const [name, setName] = useState(user?.displayName || "");
   const [imgText, setImgText] = useState("");
 
-  // Use the simplified mutation
-  const [addEmail, { loading, error }] = useMutation(SIMPLE_ADD_EMAIL);
+  const [addEmail, { data, loading, error }] = useMutation(ADD_EMAIL);
 
   const ref = useRef();
 
@@ -102,44 +101,15 @@ const PopUp = ({ setPopUp }) => {
     e.preventDefault();
 
     try {
-      // Validate all required fields
-      if (!email) {
-        toast.error("Email is required");
-        return;
-      }
-      
-      if (!description) {
-        toast.error("Description is required");
-        return;
-      }
-      
-      // Check that we have a tracking ID
-      if (!imgText || !imgText.includes('?text=')) {
-        toast.error("Failed to generate tracking ID. Please try again.");
-        return;
-      }
-      
-      const trackingId = imgText.split("?text=")[1];
-      
-      console.log("User object:", user);
-      
-      // For debugging, show what we're sending to the API
-      const variables = {
-        email: email,
-        description: description,
-        img_text: trackingId
-        // No user field - let Hasura handle this through RLS or defaults
-      };
-      
-      console.log("Sending variables to GraphQL:", variables);
-      
-      // Save the email to the database
-      const result = await addEmail({
-        variables,
+      console.log("User ID:", user?.id);
+      await addEmail({
+        variables: {
+          email: email,
+          description: description,
+          img_text: imgText.split("=")[1],
+          user: user?.id,
+        },
       });
-      
-      console.log("Mutation result:", result);
-      
       toast.success("Email added successfully");
       setPopUp(false);
       window.location.reload();
@@ -149,17 +119,11 @@ const PopUp = ({ setPopUp }) => {
       // Log detailed GraphQL errors if available
       if (err.graphQLErrors) {
         console.error("GraphQL Errors:", err.graphQLErrors);
-        err.graphQLErrors.forEach((graphQLError, index) => {
-          console.error(`GraphQL Error ${index + 1}:`, graphQLError);
-        });
       }
       
       // Log network errors if available
       if (err.networkError) {
         console.error("Network Error:", err.networkError);
-        if (err.networkError.result && err.networkError.result.errors) {
-          console.error("Network Error Details:", err.networkError.result.errors);
-        }
       }
       
       toast.error("Unable to add email: " + (err.message || "Unknown error"));
@@ -167,17 +131,9 @@ const PopUp = ({ setPopUp }) => {
   };
 
   useEffect(() => {
-    // Generate a unique tracking ID based on timestamp
     const time = new Date().getTime();
-    
-    // Build the image URL for tracking
-    const subdomain = process.env.REACT_APP_NHOST_SUBDOMAIN;
-    const region = process.env.REACT_APP_NHOST_REGION;
-    
-    console.log("Using Nhost config:", subdomain, region);
-    
     setImgText(
-      `https://${subdomain}.${region}.nhost.run/v1/functions/update?text=${time}`
+      `https://tkjfsvqlulofoefmacvj.nhost.run/v1/functions/update?text=${time}`
     );
   }, []);
 
