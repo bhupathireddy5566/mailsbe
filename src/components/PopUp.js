@@ -54,18 +54,16 @@ const PopUp = ({ setPopUp }) => {
       
       // Proper mutation with variables
       const mutation = `
-        mutation InsertEmail($email: String!, $description: String!, $img_text: String!, $user_id: String!) {
+        mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
           insert_emails_one(object: {
             email: $email,
             description: $description,
-            img_text: $img_text,
-            user_id: $user_id
+            img_text: $img_text
           }) {
             id
             email
             description
             img_text
-            user_id
             created_at
           }
         }
@@ -75,8 +73,7 @@ const PopUp = ({ setPopUp }) => {
       const variables = {
         email: email,
         description: description,
-        img_text: trackingId,
-        user_id: user?.id || "anonymous"
+        img_text: trackingId
       };
       
       console.log("Executing mutation with variables:", JSON.stringify(variables, null, 2));
@@ -88,7 +85,6 @@ const PopUp = ({ setPopUp }) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-hasura-admin-secret': process.env.REACT_APP_HASURA_ADMIN_SECRET,
           },
           body: JSON.stringify({
             query: mutation,
