@@ -62,22 +62,23 @@ const PopUp = ({ setPopUp }) => {
           },
           body: JSON.stringify({
             query: `
-              mutation InsertEmail($email: String!, $description: String!, $img_text: String!, $user_id: uuid!) {
+              mutation InsertEmail($email: String!, $description: String!, $img_text: String!) {
                 insert_emails_one(object: {
                   email: $email, 
                   description: $description, 
-                  img_text: $img_text,
-                  user_id: $user_id
+                  img_text: $img_text
+                  # No user field - will be set by Hasura permissions
                 }) {
                   id
+                  email
+                  description
                 }
               }
             `,
             variables: {
               email: email,
               description: description,
-              img_text: trackingId,
-              user_id: user?.id
+              img_text: trackingId
             }
           })
         }
